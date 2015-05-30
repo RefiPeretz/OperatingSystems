@@ -106,7 +106,8 @@ long Block::getBlockStartOffset()
 */
 Block::~Block()
 {
-	delete(_blockData);
+	delete[](_blockData);
+
 }
 
 /**

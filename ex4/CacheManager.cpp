@@ -23,15 +23,13 @@ bool My::blockComparator(Block*    first, Block*    second)
 * @param:
 * @return: nothing
 */
-CacheManager::CacheManager(char* root, char* mount, int numberOfBlock, int blockSizeStandard)
+CacheManager::CacheManager(char* root, int numberOfBlock, int blockSizeStandard)
 {
 	_rootDir = root;
 	_cacheSize = numberOfBlock;
 	_blockSize = blockSizeStandard;
 	std::fstream filesystem;
-	cout << "before open" << endl;
 	strcat(_fsPath, _rootDir);
-	cout << "try to open" << endl;
 	strcat(_fsPath, "/.filesystem.log"); //TODO . add the dot back.
 	cout << _fsPath << endl;
 	_fs.open(_fsPath, std::fstream::out | std::fstream::app);
@@ -59,15 +57,7 @@ char* CacheManager::getRootDir()
 	return _rootDir;
 }
 
-/**
-* Discription: distractor of cache manager
-* @param: 
-* @return: 
-*/
-CacheManager::~CacheManager()
-{
-	_fs.close();
-}
+
 
 /**
 * Discription: write to the log function
@@ -113,10 +103,10 @@ int CacheManager::addBlockToCache(int fd, const char* path, int positionBlock, B
 {
 	makeRoomInCache(); //TODO
 	char * blockData = new char[_blockSize + 1];
-	//blockData[0] = '\0';
 	int preadResult = pread(fd, blockData, _blockSize, _blockSize*positionBlock);
 	if(preadResult < 0)
 	{
+		delete[](blockData);
 		return preadResult; //TODO check error
 	}
 	char * pathCopy = new char[strlen(path) + 1];
@@ -124,6 +114,7 @@ int CacheManager::addBlockToCache(int fd, const char* path, int positionBlock, B
 	newBlock = new Block(pathCopy, _blockSize*positionBlock, blockData, positionBlock);
 	blockList.push_back(newBlock);
 	blockList.sort(My::blockComparator); //TODO check sort order.
+	delete[](pathCopy);
 	return preadResult; //TODO check error
 
 }
@@ -133,11 +124,15 @@ int CacheManager::addBlockToCache(int fd, const char* path, int positionBlock, B
 * @param: int fd, const char* filePath, off_t offset, size_t readSize, char* buf
 * @return: the bytes that we read
 */
-int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t readSize, char* buf)
+int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t readSize, char* buf, struct fuse_file_info *fi)
 {
 	
-	cout << "size of file is: " << readSize << endl;
-
+	//cout << "size of file is: " << readSize << endl; //------------------
+	//fail if file handle is closed
+	//if (fcntl(fi->fh, F_GETFL) < 0 && errno == EBADF) // ------------- TODO important
+	//{
+	//	return -EBADF;
+	//}
 	int bytesRead = 0;
 	size_t startBlockIndex = floor( offset / _blockSize);
 	size_t startBlockOffset = offset % _blockSize;
@@ -149,10 +144,6 @@ int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t r
 		endBlockIndex--;
 		endBlockOffset = _blockSize;
 	}
-	cout << "ofsset value is: " << offset << endl;
-	cout << "start from block number: " << startBlockIndex << endl;
-	cout << "end in block number: " << endBlockIndex << endl;
-	cout << "Running from ofsset: " << startBlockOffset << " to : " << endBlockOffset << endl;
 	Block* newBlock;
 
 	for (size_t i = startBlockIndex; i <= endBlockIndex; i++)
@@ -208,8 +199,6 @@ int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t r
 		}
 		
 	}//TODO get to end of file. what we do
-
-	//buf[bytesRead] = '\0';
 	return bytesRead;
 }
 
@@ -278,96 +267,25 @@ std::string CacheManager::toString()
 
 }
 
-// int CacheManager::Rename(std::string path, std::string newpath, bool folder)
-// {	
-// 	// char * pathCopy;
-// 	// std::string cutPath;
-// 	// const char* addPath;
+
+/**
+* Discription: distractor of cache manager
+* @param: 
+* @return: 
+*/
+
+CacheManager::~CacheManager()
+{
+	_fs.close();
+	Block* temp;
+	for (std::list<Block*>::iterator it = blockList.begin(); it != blockList.end();
+		++it)
+	{
+		temp = (*it);
+		delete(temp);
+	}
+	blockList.clear();
+	temp = NULL;
 
 
-// 	// int pathDelta = newpath.length() - path.length();
-// 	// 	// newFolderPath = new char[oldPathLen + 2];
-// 	// 	// strcpy(newFolderPath, path);
-// 	// 	// strcat(newFolderPath, "/");  //TODO magic number
-
-
-
-// 	// for (std::list<Block*>::iterator it = blockList.begin(); it != blockList.end();
-// 	// 		++it) 
-// 	// {
-// 	// 	if(folder && ((string)(*it)->getBlockFileName()).find(path) == 0)
-// 	// 	{
-// 	// 		pathCopy = new char[pathDelta + 1 + strlen((*it)->getBlockFileName())];
-// 	// 		cutPath = ((std::string)(*it)->getBlockFileName()).substr(path.length());
-// 	// 		addPath = cutPath.c_str();
-// 	// 		strcpy(pathCopy,addPath);
-// 	// 		delete((*it)->getBlockFileName());
-// 	// 		cout<<"after change in folder the path is: "<<pathCopy<<endl;
-// 	// 		(*it)->setBlockFileName(pathCopy);
-
-
-// 	// 	}
-// 	// 	else if(((std::string)(*it)->getBlockFileName()).compare(path) != 0)
-// 	// 	{
-// 	// 		pathCopy = new char[path.length() + pathDelta];
-// 	// 		strcpy(pathCopy, newpath.c_str());
-// 	// 		delete((*it)->getBlockFileName());
-// 	// 		cout<<"after change in only file the path is: "<<pathCopy<<endl;
-// 	// 		(*it)->setBlockFileName(pathCopy);
-
-// 	// 	}
-
-// 	//  }
-	
-
-// 	// if (folder)
-// 	// {
-// 	// 	oldPathLen = strlen(path);
-// 	// 	pathLenDiff = strlen(newpath) - oldPathLen;
-// 	// 	folderPath = new char[oldPathLen + 2];  // +2 to account for / and \0
-// 	// 	strcpy(folderPath, path);
-// 	// 	strcat(folderPath, FOLDER_SEPARATOR);  // add "/" to end of path
-// 	// }
-
-// 	// // goes over the map, and finds blocks that should be renamed
-// 	// for (std::list<Block*>::iterator it = blockList.begin(); it != blockList.end();
-// 	// 		++it)
-// 	// {
-// 	// 	if (folder && checkPrefix(folderPath, (*it)->getBlockFileName()))  // renaming a folder
-// 	// 	{
-// 	// 		pathCopy = new char[strlen(mapIt->second->_path) + pathLenDiff + 1];
-// 	// 		strcpy(pathCopy, newpath);
-// 	// 		strcat(pathCopy, mapIt->second->_path + oldPathLen);  // -1 to include "/"
-// 	// 		delete mapIt->second->_path;
-// 	// 		mapIt->second->_path = pathCopy;
-// 	// 		blocksToReadd.push_back(mapIt->second);
-// 	// 		mapIt = _blocksByKey.erase(mapIt);
-// 	// 	}
-// 	// 	else if (strcmp(mapIt->second->_path, path) == 0)  // renaming a single file
-// 	// 	{
-// 	// 		delete mapIt->second->_path;
-// 	// 		pathCopy = new char[strlen(newpath) + 1];
-// 	// 		mapIt->second->_path = strcpy(pathCopy, newpath);
-// 	// 		blocksToReadd.push_back(mapIt->second);
-// 	// 		mapIt = _blocksByKey.erase(mapIt);
-// 	// 	}
-// 	// 	else
-// 	// 	{
-// 	// 		++mapIt;
-// 	// 	}
-// 	// }
-
-// 	// // readd the renamed blocks
-// 	// vector<Block*>::iterator vecIt;
-// 	// for (vecIt = blocksToReadd.begin(); vecIt != blocksToReadd.end(); ++vecIt)
-// 	// {
-// 	// 	_blocksByKey[_generateKey((*vecIt)->_path, (*vecIt)->_blockIndexInFile)] = *vecIt;
-// 	// }
-
-// 	// if (isFolder)
-// 	// {
-// 	// 	delete folderPath;
-// 	// }
-// 	return 0;
-
-// }
+}

@@ -6,14 +6,10 @@
 */
 
 #define FUSE_USE_VERSION 26
-
 #include <fuse.h>
 #include "CacheManager.h"
-
 #include <unistd.h>
 #include "Block.h"
-
-
 using namespace std;
 #define GETATTR "getattr"
 #define ACCESS "access"
@@ -25,63 +21,36 @@ using namespace std;
 #define OPENDIR "opendir"
 #define READDIR "readdir"
 #define RELEASEDIR "releasedir"
+#define READ_ONLY 3
 #define RENAME "rename"
 #define INIT "init"
 #define DESTROY "destroy"
+#define FAIL 1 // TODO
 #define IOCTL "ioctl"
-
+#define LOG_NAME ".filesystem.log"
 #define MANAGER ((CacheManager *) fuse_get_context()->private_data)
+#define TRY_TO_ACCESS_LOG_FILE if (endsWithLogString(path, LOG_NAME)){return -ENOENT;} // ---------
 
 struct fuse_operations caching_oper;
 
-
-
-// enum errorType {
-// 	SYS_GEN_ERROR, // system error or other (general) error occured
-// 	BAD_PARAMS, // got bad params (in main)
-// 	WRITE_LOG, // cant write to log file
-// 	OPEN_FILE, // cant open log file
-// 	MAIN_ERROR // error allocating memory in main (used by fuse)
-// };
-
-
-// int handleError(int retVal, errorType error, std::string funcName = "unknown", bool toExit = false) {
-// 	if (retVal != 0) {
-// 		switch (error) {
-// 		case SYS_GEN_ERROR:
-// 			CACHING_DATA ->logFile << "error in " + funcName + "\n";
-// 			break;
-// 		case BAD_PARAMS:
-// 			CACHING_DATA ->logFile
-// 					<< "usage: MyCachingFileSystem rootdir mountdir numberOfBlocks blockSize\n";
-// 			break;
-// 		case OPEN_FILE:
-// 			cerr << "system error: couldn't open ioctloutput.log file\n";
-// 			break;
-// 		case WRITE_LOG:
-// 			cerr << "system error: couldn't write to ioctloutput.log file\n";
-// 			break;
-// 		case MAIN_ERROR:
-// 			cerr << " main cant allocate memory\n";
-// 			break;
-
-// 		}
-// 		// if (toExit) {
-// 		// 	exit(ERROR);//TODO
-// 		// }
-// 		return ERROR;
-
-// 	} else {
-// 		return SUCCESS;
-// 	}
-// }
+/**
+* chech if a given string ends with a given ending string.
+* Returns true if str ends with ending, false otherwise.
+*/
+bool endsWithLogString(std::string const &path, std::string const &ends) // -------------
+{
+	if (path.length() >= ends.length())
+	{
+		return 0 == path.compare(path.length() - ends.length(), ends.length(), ends);
+	}
+	return false;
+}
 
 /**
 * a function that converts relative path to a fullpath
 */
 static void caching_fileFullPath(char fileFullPath[PATH_MAX], const char *path) 
 {
-	//TODO - error if path is too big // more then path_max?
 	strcpy(fileFullPath, MANAGER->getRootDir());
 	strncat(fileFullPath, path, PATH_MAX); // if the path is long, it will break here
 }
@@ -94,17 +63,15 @@ static void caching_fileFullPath(char fileFullPath[PATH_MAX], const char *path)
 */
 int caching_getattr(const char *path, struct stat *statbuf)
 { 
+	MANAGER->writeToLog(GETATTR);
+	TRY_TO_ACCESS_LOG_FILE;
 	int retstat = 0;
-
-	cout<<"getattr"<<endl;
-	MANAGER->writeToLog(GETATTR); // TODO - check error
 	char fileFullPath[PATH_MAX]; 
 	fileFullPath[0] = '\0'; // initial full path
 	caching_fileFullPath(fileFullPath, path); // change path to full path
 	retstat = lstat(fileFullPath, statbuf); // return information about a file.
 	if(retstat != 0)
 	{
-		cout<<-errno<<path<<endl;
 		retstat = -errno;
 	}
 	return retstat;
@@ -124,18 +91,19 @@ int caching_getattr(const char *path, struct stat *statbuf)
 */
 int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi)
 {
-	cout<<"fgetattr"<<endl;
-    // TODO  call log, including error
-    MANAGER->writeToLog(FGETATTR);
+	MANAGER->writeToLog(FGETATTR);
+	TRY_TO_ACCESS_LOG_FILE;
 	int restat = fstat(fi->fh, statbuf);
-
-	// TODO special case of a "/"??
+	// TODO special case of a "/"?? - important
+	//if (!strcmp(path, FOLDER_SEPARATOR))
+	//{
+		//return caching_getattr(path, statbuf);
+	//}
 	if(restat < 0)
 	{
 		restat = -errno;
 	}
-
-    return restat;
+	return restat;
 }
 
 /**
@@ -151,17 +119,16 @@ int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_in
 */
 int caching_access(const char *path, int mask)
 { 
-	int restat = 0;
-	cout<<"access"<<endl;
+	//cout<<"access"<<endl; //-------------------------
 	MANAGER->writeToLog(ACCESS);
+	TRY_TO_ACCESS_LOG_FILE;
 	char filePath[PATH_MAX]; 
 	filePath[0] = '\0';
 	caching_fileFullPath(filePath, path); // converts relative path to fullpath
-	restat = access(filePath, mask);
-	//TODO return error if needed
+	int restat = access(filePath, mask);
 	if(restat < 0)
 	{
-		cout<<"error"<<endl;
+		//cout<<"error"<<endl; // ----------------------
 		restat = -errno;
 	}
 	return restat;
@@ -181,24 +148,23 @@ int caching_access(const char *path, int mask)
 */
 int caching_open(const char *path, struct fuse_file_info *fi)
 {
-	cout<<"open"<<endl;
+	//cout<<"open"<<endl; // --------------------------
 	MANAGER->writeToLog(OPEN);
+	TRY_TO_ACCESS_LOG_FILE;
+	if ((fi->flags & READ_ONLY) != O_RDONLY) // --------------------------------
+	{
+		return -EACCES;
+	}
 	int restat = 0;
 	int fd;
-	char fpath[PATH_MAX];
-	
+	char fpath[PATH_MAX];	
 	fpath[0] = '\0';
-
 	caching_fileFullPath(fpath, path);
-
 	fd = open(fpath, fi->flags);
-
-
 	if(fd < 0 )
 	{
 		restat = -errno;
 	}
-
 	fi->fh = fd;
 	return restat;
 
@@ -226,24 +192,21 @@ int getRealSizeOfFile(const char *path, struct fuse_file_info *fi)
 int caching_read(const char *path, char *buf, size_t size, off_t offset,
 		struct fuse_file_info *fi)
 {
-	cout<<"read"<<endl;//TODO trying access the log return -ENOENT
-
-
 	MANAGER->writeToLog(READ); // write to the log file
-
+	TRY_TO_ACCESS_LOG_FILE;
 	size = min(getRealSizeOfFile(path, fi) - (int) offset, (int) size);
-
 	char fpath[PATH_MAX];
-	//fpath[0] = '\0';
 	caching_fileFullPath(fpath, path);
-	int readResult = MANAGER->cacheRead(fi->fh, fpath, offset, size, buf); 
+	if (access(fpath, F_OK)) // ----------------------------
+	{
+		return -ENOENT;
+	}
+	int readResult = MANAGER->cacheRead(fi->fh, fpath, offset, size, buf, fi); 
 	if(readResult < 0)
 	{
 		readResult = -errno;
 	}
-	//int bufferWriteResult = MANAGER->bufferWrite(size, offset, path, buf); // TODO - has error?
-	cout<<"return value is: "<<readResult<<endl;
-	return readResult;//bufferWriteResult;
+	return readResult;
 }
 
 /** Possibly flush cached data
@@ -272,8 +235,9 @@ int caching_read(const char *path, char *buf, size_t size, off_t offset,
 int caching_flush(const char *path, struct fuse_file_info *fi)
 {
 	MANAGER->writeToLog(FLUSH);
-	cout<<"flush"<<endl;
-    return 0;
+	TRY_TO_ACCESS_LOG_FILE;
+	//cout<<"flush"<<endl; //--------------------------
+	return 0;
 }
 
 /** Release an open file
@@ -292,8 +256,9 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
 */
 int caching_release(const char *path, struct fuse_file_info *fi)
 {
-	cout<<"release"<<endl;
+	//cout<<"release"<<endl; // ----------------------
 	MANAGER->writeToLog(RELEASE);
+	TRY_TO_ACCESS_LOG_FILE;
 	return (close(fi->fh));
 
 }
@@ -307,24 +272,19 @@ int caching_release(const char *path, struct fuse_file_info *fi)
 */
 int caching_opendir(const char *path, struct fuse_file_info *fi){
 
-	cout<<"opendir"<<endl;
+	//cout<<"opendir"<<endl; //------------------------------
 	MANAGER->writeToLog(OPENDIR);
+	TRY_TO_ACCESS_LOG_FILE;
 	DIR *dp;
 	int retstat = 0;
-
 	char fpath[PATH_MAX];
-
 	fpath[0] = '\0';
-
 	caching_fileFullPath(fpath, path);
-
 	dp = opendir(fpath);
-
 	if (dp == NULL)
 	{
 		retstat = -errno;
 	}
-
 	fi->fh = (intptr_t) dp;
 	return retstat;
 
@@ -345,23 +305,18 @@ int caching_opendir(const char *path, struct fuse_file_info *fi){
 * Introduced in version 2.3
 */
 int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
-		struct fuse_file_info *fi){
+		struct fuse_file_info *fi)
+{
 
-	cout<<"readdir"<<endl;
 	MANAGER->writeToLog(READDIR);
+	TRY_TO_ACCESS_LOG_FILE;
 	int retstat = 0;
 	DIR *dp;
 	struct dirent *de;
-
 	// once again, no need for fullpath -- but note that I need to cast fi->fh
 	dp = (DIR *) (uintptr_t) fi->fh;
-
-	// Every directory contains at least two entries: . and ..  If my
-	// first call to the system readdir() returns NULL I've got an
-	// error; near as I can tell, that's the only condition under
-	// which I can get an error from readdir()
 	de = readdir(dp);
-	// if (de == 0) {//TODO
+	// if (de == 0) {//TODO - IMPORTANDT - not include in d
 	// 	handleError(ERROR, SYS_GEN_ERROR, __func__);
 	// 	return ERROR;
 	// }
@@ -373,14 +328,18 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
 	// when either the system readdir() returns NULL, or filler()
 	// returns something non-zero.  The first case just means I've
 	// read the whole directory; the second means the buffer is full.
-	do {
-		if (filler(buf, de->d_name, NULL, 0) != 0) {
+	do 
+	{
+		//if (endsWith(de->d_name, LOG_FILENAME))  TODO  - IMPORTANT
+		//{
+		//	continue;
+		//}
+		if (filler(buf, de->d_name, NULL, 0) != 0)
+		{
 			//return handleError(-1, SYS_GEN_ERROR);//TODO
 		}
-	} while ((de = readdir(dp)) != NULL);
-
-	
-
+	}
+	while ((de = readdir(dp)) != NULL);
 	return retstat;
 }
 
@@ -389,66 +348,41 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
  *
  * Introduced in velsrsion 2.3
  */
-int caching_releasedir(const char *path, struct fuse_file_info *fi){
-	cout<<"realeasedit"<<endl;
+int caching_releasedir(const char *path, struct fuse_file_info *fi)
+{
+	//cout<<"realeasedit"<<endl; //-----------------------
 	MANAGER->writeToLog(RELEASEDIR);
-	int retstat = 0;
+	TRY_TO_ACCESS_LOG_FILE;
 	closedir((DIR *) (uintptr_t) fi->fh);
-	return retstat;
+	return 0;
 }
-
-/**
-* update the path of the new name in the cache
-* go true the block list in the cache and change to the new name
-*/
-// int renameInCache(const char* path, const char* newName)
-// {
-// 	for (std::list<Block*>::iterator it = MANAGER ->blockList.begin(); it != MANAGER ->blockList.end();
-// 			++it) 
-// 	{
-// 		if (((*it)->getBlockFileName()).compare(path) == 0) 
-// 		{
-// 			(*it)->getBlockFileName() = newName;
-// 		}
-// 	}
-// 	return 0;
-// }
-
 
 /**
 * Rename a file 
 */
 int caching_rename(const char *path, const char *newpath)
 {
-	cout<<"rename"<<endl;//TODO change names to parameters
-	// TODO - write to log + error
+	//cout<<"rename"<<endl;//TODO change names to parameters //----------------------
 	MANAGER->writeToLog(RENAME);
-
-    int retstat = 0;
-    char fpath[PATH_MAX];
-    char fnewpath[PATH_MAX];
-   
-    caching_fileFullPath(fpath, path);
-    caching_fileFullPath(fnewpath, newpath);
-
-    cout <<"oldName " <<path<<"new "<<newpath<<endl;
-   
-   
-    char* moldpath = realpath(fpath,NULL);
-    cout <<"send to rename old " <<fpath<<" and new send is: "<<fnewpath<<endl;
-    retstat = rename(fpath,fnewpath);
-    char* mnewpath = realpath(fnewpath,NULL);
-
-    if (retstat < 0)
-    {
-        
-        printf("ERROR : caching_rename\n");
-        return -errno;
-    }
-
-
-    MANAGER->Rename(moldpath ,mnewpath);
-    return retstat;
+	TRY_TO_ACCESS_LOG_FILE;
+	int retstat = 0;
+	char fpath[PATH_MAX];
+	char fnewpath[PATH_MAX];
+	caching_fileFullPath(fpath, path);
+	caching_fileFullPath(fnewpath, newpath);
+	char* oldP = realpath(fpath,NULL);
+	retstat = rename(fpath,fnewpath);
+	char* newP = realpath(fnewpath,NULL);
+	if (retstat < 0)
+	{
+		free(oldP);
+		free(newP);
+		return -errno;
+	}
+	MANAGER->Rename(oldP ,newP);
+	free(oldP);
+	free(newP);
+	return retstat;
 
 
 
@@ -466,7 +400,6 @@ int caching_rename(const char *path, const char *newpath)
  */
 void *caching_init(struct fuse_conn_info *conn)
 {
-	cout<<"init"<<endl;
 	MANAGER->writeToLog(INIT);
 	return MANAGER;
 }
@@ -481,13 +414,9 @@ void *caching_init(struct fuse_conn_info *conn)
  */
 void caching_destroy(void *userdata)
 {
-	cout<<"destroy"<<endl;
-	// TODO - close log file?
 	MANAGER->writeToLog(DESTROY);
-	free(MANAGER-> getRootDir());
-	delete(MANAGER);
-	
-
+	free(MANAGER-> getRootDir());//TODO
+	delete(MANAGER);	
 }
 
 
@@ -508,10 +437,8 @@ int caching_ioctl (const char *, int cmd, void *arg,
 		struct fuse_file_info *, unsigned int flags, void *data)
 {
 	MANAGER->writeToLog(IOCTL);
-    string ioctldata = MANAGER->toString();
-    
-
- 	return 0;
+	string ioctldata = MANAGER->toString();
+	return 0;
 }
 
 
@@ -566,29 +493,54 @@ void init_caching_oper()
 /**
 * main function
 */
-int main(int argc, char* argv[]){
+int main(int argc, char* argv[])
+{
+	if (argc < 5)
+	{
+		cout << "usage: CachingFileSystem rootdir mountdir numberOfBlocks blockSize\n" << endl;
+		exit(FAIL);
+	}
 	// reseting caching operators
 	init_caching_oper();
 	//prepering the log file address
+	if (atoi(argv[3]) <= 0 || atoi(argv[4]) <= 0)
+	{
+		cout << "usage: CachingFileSystem rootdir mountdir numberOfBlocks blockSize\n" << endl;
+		exit(FAIL);
+	}
+	struct stat s = {0};
+	char* rootDir = realpath(argv[1], NULL);
+	//Check if rootdir and moundir exist // TODO  check if muntdir empty?
+	if (rootDir == NULL || stat(rootDir	, &s) || stat(argv[2], &s))
+	{
+		cout << "Canno't resolve root dir\n" << endl;
 
-	cout<<"create manager"<<endl;
-	CacheManager* manager = new CacheManager(realpath(argv[1], NULL), realpath(argv[2], NULL), atoi(argv[3]), atoi(argv[4]));
-
+		if(rootDir != NULL)
+		{
+			free(rootDir);
+		}
+		exit(FAIL);
+	}
+	CacheManager* manager = new CacheManager(rootDir, atoi(argv[3]), atoi(argv[4]));
+	// TODO -  IMPORTANT .  chack if could open the log
 	argv[1] = argv[2];
-
-	cout<<"I am here"<<endl;
-
-	for (int i = 2; i< (argc - 1); i++){
+	for (int i = 2; i< (argc - 1); i++)
+	{
 		argv[i] = NULL;
 	}
-        argv[2] = (char*) "-s";
-        argv[3] = (char*) "-f";//TODO delete this before sub
-
+	argv[2] = (char*) "-s";
+	argv[3] = (char*) "-f";//TODO delete this before sub
 	argc = 4;
 
 	
 	int fuse_stat = fuse_main(argc, argv, &caching_oper, manager);
-
+	if (fuse_stat)
+	{
+		free(MANAGER-> getRootDir());
+		delete(MANAGER);
+		perror("Error while initializing FUSE\n");
+		exit(FAIL);
+	}
 	return fuse_stat;
 }
 
