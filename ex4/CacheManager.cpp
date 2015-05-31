@@ -29,9 +29,9 @@ CacheManager::CacheManager(char* root, int numberOfBlock, int blockSizeStandard)
 	_cacheSize = numberOfBlock;
 	_blockSize = blockSizeStandard;
 	std::fstream filesystem;
+	_fsPath[0] = '\0';
 	strcat(_fsPath, _rootDir);
 	strcat(_fsPath, "/.filesystem.log"); //TODO . add the dot back.
-	cout << _fsPath << endl;
 	_fs.open(_fsPath, std::fstream::out | std::fstream::app);
 	
 
@@ -103,6 +103,7 @@ int CacheManager::addBlockToCache(int fd, const char* path, int positionBlock, B
 {
 	makeRoomInCache(); //TODO
 	char * blockData = new char[_blockSize + 1];
+	blockData[0] = '\0';
 	int preadResult = pread(fd, blockData, _blockSize, _blockSize*positionBlock);
 	if(preadResult < 0)
 	{
@@ -110,6 +111,7 @@ int CacheManager::addBlockToCache(int fd, const char* path, int positionBlock, B
 		return preadResult; //TODO check error
 	}
 	char * pathCopy = new char[strlen(path) + 1];
+	pathCopy[0] = '\0';
 	strcpy(pathCopy, path);
 	newBlock = new Block(pathCopy, _blockSize*positionBlock, blockData, positionBlock);
 	blockList.push_back(newBlock);
@@ -124,15 +126,16 @@ int CacheManager::addBlockToCache(int fd, const char* path, int positionBlock, B
 * @param: int fd, const char* filePath, off_t offset, size_t readSize, char* buf
 * @return: the bytes that we read
 */
-int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t readSize, char* buf, struct fuse_file_info *fi)
+int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t readSize, \
+							char* buf, struct fuse_file_info *fi)
 {
 	
-	//cout << "size of file is: " << readSize << endl; //------------------
 	//fail if file handle is closed
 	//if (fcntl(fi->fh, F_GETFL) < 0 && errno == EBADF) // ------------- TODO important
 	//{
 	//	return -EBADF;
 	//}
+	buf[0] = '\0';
 	int bytesRead = 0;
 	size_t startBlockIndex = floor( offset / _blockSize);
 	size_t startBlockOffset = offset % _blockSize;
@@ -158,19 +161,12 @@ int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t r
 				return resAddBlock; //TODO error
 			}
 		}
-
-		cout << "iteration :" << i << endl;
-		cout << "now running block: " << newBlock->getBlockPosition() << endl;
-		//newBlock->setBlockPosition(i); 
-
 		newBlock->addToCounter(); // for ioctl
-				// Block exist
 		if (startBlockIndex == endBlockIndex)
 		{
 			// Reading from one block only
 			strncpy(buf + bytesRead, (newBlock->getBlockData()) + startBlockOffset, readSize);
 			bytesRead += readSize;
-			//cout<<"writing in equal cond: "<<newBlock->getBlockData()<<endl; 
 			break;
 		}
 
@@ -180,21 +176,18 @@ int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t r
 			// First block
 			strncpy(buf + bytesRead, newBlock->getBlockData() + startBlockOffset,\
 			 _blockSize - startBlockOffset);
-			cout << "Writing to first" << newBlock->getBlockData() << endl;
 			bytesRead += _blockSize - startBlockOffset;
 		}
 		else if (i == endBlockIndex)
 		{
 
 			strncpy(buf + bytesRead, newBlock->getBlockData(), endBlockOffset);
-			//cout<<"Writing to second"<<newBlock->getBlockData()<<endl;
 			bytesRead += endBlockOffset;
 		}
 		else
 		{
 			// Middle blocks
 			strncpy(buf + bytesRead, newBlock->getBlockData(), _blockSize);
-			//cout<<"Writing to second"<<newBlock->getBlockData()<<endl;
 			bytesRead += _blockSize;
 		}
 		
@@ -210,7 +203,6 @@ int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t r
 
 void CacheManager::makeRoomInCache()
 {
-	cout << "trying to make room" << endl;
 	// list smaller then the csche size
 	if (blockList.size() < _cacheSize)
 	{
@@ -231,17 +223,17 @@ void CacheManager::makeRoomInCache()
 */
 
 
-void CacheManager::Rename(std::string oldName , std::string newName)
+void CacheManager::rename(std::string oldName , std::string newName)
 {
 	for (std::list<Block*>::iterator it = blockList.begin(); it != blockList.end();
 		++it)
 	{
 		if ((*it)->getBlockFileName().length() >= oldName.length())
 		{
-			std::string tmpName = (*it)->getBlockFileName().substr(0,oldName.length());
+			std::string tmpName = (*it)->getBlockFileName().substr(0, oldName.length());
 			if (tmpName == oldName)
 			{
-				std::string update = (*it)->getBlockFileName().replace(0,oldName.length(),newName);
+				std::string update = (*it)->getBlockFileName().replace(0, oldName.length(), newName);
 				(*it)->setBlockFileName(update);
 			}
 		}
@@ -254,16 +246,15 @@ void CacheManager::Rename(std::string oldName , std::string newName)
 
 std::string CacheManager::toString()
 {
-    std::stringstream ss;
-    ss<< endl;
-
-    for (std::list<Block*>::iterator it = blockList.begin(); it != blockList.end();
+	std::stringstream ss;
+	ss << "";
+	for (std::list<Block*>::iterator it = blockList.begin(); it != blockList.end();
 			++it)
-    {
-    	ss<<(*it)->toString(_rootDir);
-    }
-    _fs<<ss.str()<<endl;
-    return ss.str();
+	{
+		ss << (*it)->toString(_rootDir);
+	}
+	_fs << ss.str();
+	return ss.str();
 
 }
 

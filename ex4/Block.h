@@ -87,7 +87,9 @@ public:
 	* Discription: set block position
 	*/
 	void setBlockPosition(int newPosition);
-
+	/**
+	* Discription: help function for ioctl.
+	*/
 	std::string toString(std::string rootpath);
 
 private:

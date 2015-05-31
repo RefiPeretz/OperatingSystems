@@ -26,22 +26,63 @@ using namespace std;
 class CacheManager
 {
 public:
+	/**
+	* Discription: destructor
+	*/
 	~CacheManager();
+	/**
+	* Discription: constructor
+	*/
 	CacheManager(char* root, int numberOfBlock, int blockSizeStandard);
 	std::list<Block*> blockList; 
+	/**
+	* Discription: ger the path of root dir
+	*/
 	char* getRootDir();
+	/**
+	* Discription: write to log file
+	*/
 	void writeToLog(std::string func);
+	/**
+	* Discription: get the real size of the file
+	*/
 	int getStandartdSize();
-	int cacheRead(int fd, const char* path, off_t offset, size_t sizeToRead, char* buf, struct fuse_file_info *fi);
+	/**
+	* Discription: help function to cache read
+	*/
+	int cacheRead(int fd, const char* path, off_t offset, size_t sizeToRead, char* buf,\
+				  struct fuse_file_info *fi);
+	/**
+	* Discription: writing to the buffer
+	*/
 	int bufferWrite(size_t size, off_t offset, std::string pathName, char* buffer);
+	/**
+	* Discription: finding the block to use next
+	*/
 	Block* findMyBlock(string name, int position);
+	/**
+	* Discription: add block to the cache
+	*/
 	int addBlockToCache(int fd, const char* path, int positionBlock, Block*& newBlock);
+	/**
+	* Discription: finding the last recent used block
+	*/
 	Block* leastRecentUsed();
+	/**
+	* Discription: sort function for the list
+	*/
 	bool sortFunction(Block* a, Block* b);
+	/**
+	* Discription: clrearing space in the cache
+	*/
 	void makeRoomInCache();
-	void Rename(std::string oldName ,std::string newName);
-	void Ioctl(const char *, int cmd, void *arg,
-		struct fuse_file_info *, unsigned int flags, void *data_);
+	/**
+	* Discription: rename a file/directory
+	*/
+	void rename(std::string oldName , std::string newName);
+	/**
+	* Discription: help function to ioctl number 2
+	*/
 	std::string toString();
 private:
 	char _fsPath[PATH_MAX];

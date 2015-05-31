@@ -29,7 +29,7 @@ using namespace std;
 #define IOCTL "ioctl"
 #define LOG_NAME ".filesystem.log"
 #define MANAGER ((CacheManager *) fuse_get_context()->private_data)
-#define TRY_TO_ACCESS_LOG_FILE if (endsWithLogString(path, LOG_NAME)){return -ENOENT;} // ---------
+#define TRY_TO_ACCESS_LOG_FILE if (endsWithLogString(path, LOG_NAME)){return -ENOENT; } // ---------
 
 struct fuse_operations caching_oper;
 
@@ -49,7 +49,8 @@ bool endsWithLogString(std::string const &path, std::string const &ends) // ----
 /**
 * a function that converts relative path to a fullpath
 */
-static void caching_fileFullPath(char fileFullPath[PATH_MAX], const char *path) 
+static void caching_fileFullPath(char fileFullPath[PATH_MAX], const char\
+								 *path) //TODO check function name
 {
 	strcpy(fileFullPath, MANAGER->getRootDir());
 	strncat(fileFullPath, path, PATH_MAX); // if the path is long, it will break here
@@ -119,7 +120,6 @@ int caching_fgetattr(const char *path, struct stat *statbuf, struct fuse_file_in
 */
 int caching_access(const char *path, int mask)
 { 
-	//cout<<"access"<<endl; //-------------------------
 	MANAGER->writeToLog(ACCESS);
 	TRY_TO_ACCESS_LOG_FILE;
 	char filePath[PATH_MAX]; 
@@ -128,7 +128,6 @@ int caching_access(const char *path, int mask)
 	int restat = access(filePath, mask);
 	if(restat < 0)
 	{
-		//cout<<"error"<<endl; // ----------------------
 		restat = -errno;
 	}
 	return restat;
@@ -148,7 +147,6 @@ int caching_access(const char *path, int mask)
 */
 int caching_open(const char *path, struct fuse_file_info *fi)
 {
-	//cout<<"open"<<endl; // --------------------------
 	MANAGER->writeToLog(OPEN);
 	TRY_TO_ACCESS_LOG_FILE;
 	if ((fi->flags & READ_ONLY) != O_RDONLY) // --------------------------------
@@ -190,12 +188,14 @@ int getRealSizeOfFile(const char *path, struct fuse_file_info *fi)
 * Changed in version 2.2
 */
 int caching_read(const char *path, char *buf, size_t size, off_t offset,
-		struct fuse_file_info *fi)
+				 struct fuse_file_info *fi)
 {
+
 	MANAGER->writeToLog(READ); // write to the log file
 	TRY_TO_ACCESS_LOG_FILE;
 	size = min(getRealSizeOfFile(path, fi) - (int) offset, (int) size);
 	char fpath[PATH_MAX];
+	fpath[0] = '\0';
 	caching_fileFullPath(fpath, path);
 	if (access(fpath, F_OK)) // ----------------------------
 	{
@@ -236,7 +236,6 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
 {
 	MANAGER->writeToLog(FLUSH);
 	TRY_TO_ACCESS_LOG_FILE;
-	//cout<<"flush"<<endl; //--------------------------
 	return 0;
 }
 
@@ -256,7 +255,6 @@ int caching_flush(const char *path, struct fuse_file_info *fi)
 */
 int caching_release(const char *path, struct fuse_file_info *fi)
 {
-	//cout<<"release"<<endl; // ----------------------
 	MANAGER->writeToLog(RELEASE);
 	TRY_TO_ACCESS_LOG_FILE;
 	return (close(fi->fh));
@@ -270,9 +268,9 @@ int caching_release(const char *path, struct fuse_file_info *fi)
 *
 * Introduced in version 2.3
 */
-int caching_opendir(const char *path, struct fuse_file_info *fi){
+int caching_opendir(const char *path, struct fuse_file_info *fi)
+{
 
-	//cout<<"opendir"<<endl; //------------------------------
 	MANAGER->writeToLog(OPENDIR);
 	TRY_TO_ACCESS_LOG_FILE;
 	DIR *dp;
@@ -305,7 +303,7 @@ int caching_opendir(const char *path, struct fuse_file_info *fi){
 * Introduced in version 2.3
 */
 int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
-		struct fuse_file_info *fi)
+					struct fuse_file_info *fi)
 {
 
 	MANAGER->writeToLog(READDIR);
@@ -350,7 +348,6 @@ int caching_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
  */
 int caching_releasedir(const char *path, struct fuse_file_info *fi)
 {
-	//cout<<"realeasedit"<<endl; //-----------------------
 	MANAGER->writeToLog(RELEASEDIR);
 	TRY_TO_ACCESS_LOG_FILE;
 	closedir((DIR *) (uintptr_t) fi->fh);
@@ -362,24 +359,24 @@ int caching_releasedir(const char *path, struct fuse_file_info *fi)
 */
 int caching_rename(const char *path, const char *newpath)
 {
-	//cout<<"rename"<<endl;//TODO change names to parameters //----------------------
 	MANAGER->writeToLog(RENAME);
 	TRY_TO_ACCESS_LOG_FILE;
 	int retstat = 0;
 	char fpath[PATH_MAX];
 	char fnewpath[PATH_MAX];
+
 	caching_fileFullPath(fpath, path);
 	caching_fileFullPath(fnewpath, newpath);
-	char* oldP = realpath(fpath,NULL);
-	retstat = rename(fpath,fnewpath);
-	char* newP = realpath(fnewpath,NULL);
+	char* oldP = realpath(fpath, NULL);
+	retstat = rename(fpath, fnewpath);
+	char* newP = realpath(fnewpath, NULL);
 	if (retstat < 0)
 	{
 		free(oldP);
 		free(newP);
 		return -errno;
 	}
-	MANAGER->Rename(oldP ,newP);
+	MANAGER->rename(oldP , newP);
 	free(oldP);
 	free(newP);
 	return retstat;
@@ -415,7 +412,7 @@ void *caching_init(struct fuse_conn_info *conn)
 void caching_destroy(void *userdata)
 {
 	MANAGER->writeToLog(DESTROY);
-	free(MANAGER-> getRootDir());//TODO
+	free(MANAGER-> getRootDir()); //TODO
 	delete(MANAGER);	
 }
 
@@ -434,7 +431,7 @@ void caching_destroy(void *userdata)
 * Introduced in version 2.8
 */
 int caching_ioctl (const char *, int cmd, void *arg,
-		struct fuse_file_info *, unsigned int flags, void *data)
+				   struct fuse_file_info *, unsigned int flags, void *data)
 {
 	MANAGER->writeToLog(IOCTL);
 	string ioctldata = MANAGER->toString();
@@ -508,6 +505,9 @@ int main(int argc, char* argv[])
 		cout << "usage: CachingFileSystem rootdir mountdir numberOfBlocks blockSize\n" << endl;
 		exit(FAIL);
 	}
+	/**
+	* stract stat
+	*/
 	struct stat s = {0};
 	char* rootDir = realpath(argv[1], NULL);
 	//Check if rootdir and moundir exist // TODO  check if muntdir empty?
@@ -529,7 +529,7 @@ int main(int argc, char* argv[])
 		argv[i] = NULL;
 	}
 	argv[2] = (char*) "-s";
-	argv[3] = (char*) "-f";//TODO delete this before sub
+	argv[3] = (char*) "-f"; //TODO delete this before sub
 	argc = 4;
 
 	
@@ -550,3 +550,7 @@ int main(int argc, char* argv[])
 //g++ -Wall -g -std=c++11 -o papo Block.cpp CacheManager.cpp CachingFileSystem.cpp -lfuse -D_FILE_OFFSET_BITS=64 `pkg-config fuse --libs` `pkg-config fuse --cflags`
 
 //fusermount -u /tmp/ff/md       //TODO
+
+//valgrind --tool=memcheck --leak-check=full papo /tmp/rr/rd /tmp/rr/md 5 1024
+
+//python -c "import os,fcntl; fd = os.open('/tmp/rr/md/.filesystem.log', os.O_RDONLY); fcntl.ioctl(fd, 0); os.close(fd)"
