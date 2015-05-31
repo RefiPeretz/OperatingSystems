@@ -135,13 +135,13 @@ void Block::setBlockPosition(int newPosition)
 * @param: std::string rootpath
 * @return: 
 */
-std::string Block::toString(std::string rootpath)//TOTO change parameters
+std::string Block::toString(std::string rootpath)
 {
-	std::string rp = rootpath;
-	std::string filename = _blockFileName;
-	std::string relativeName = filename.substr(rp.length() + 1);
+	std::string root = rootpath;
+	std::string fileName = _blockFileName;
+	std::string relName = fileName.substr(root.length() + 1);
 	std::stringstream ss;
-	ss << relativeName << " " << _blockPosition << " " << _readCounter << endl;
+	ss << relName << " " << _blockPosition << " " << _readCounter << endl;
 	return ss.str();
 }
 

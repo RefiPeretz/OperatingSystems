@@ -10,6 +10,8 @@
 #include "Block.h"
 #include <fstream>
 #include <list>
+#define SUCCESS 0
+#define ERROR -1
 
 
 
@@ -42,7 +44,7 @@ public:
 	/**
 	* Discription: write to log file
 	*/
-	void writeToLog(std::string func);
+	int writeToLog(std::string func);
 	/**
 	* Discription: get the real size of the file
 	*/
@@ -76,6 +78,10 @@ public:
 	* Discription: clrearing space in the cache
 	*/
 	void makeRoomInCache();
+	/**
+	* Discription: open the log file
+	*/
+	int initLog();
 	/**
 	* Discription: rename a file/directory
 	*/

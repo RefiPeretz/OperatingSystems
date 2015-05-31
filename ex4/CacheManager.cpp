@@ -17,7 +17,6 @@ bool My::blockComparator(Block*    first, Block*    second)
 }
 
 
-
 /**
 * Discription: defulte constructor
 * @param:
@@ -28,14 +27,25 @@ CacheManager::CacheManager(char* root, int numberOfBlock, int blockSizeStandard)
 	_rootDir = root;
 	_cacheSize = numberOfBlock;
 	_blockSize = blockSizeStandard;
-	std::fstream filesystem;
-	_fsPath[0] = '\0';
-	strcat(_fsPath, _rootDir);
-	strcat(_fsPath, "/.filesystem.log"); //TODO . add the dot back.
-	_fs.open(_fsPath, std::fstream::out | std::fstream::app);
+
 	
 
 }
+
+int CacheManager::initLog()
+{
+	//std::fstream filesystem;
+	_fsPath[0] = '\0';
+	strcat(_fsPath, _rootDir);
+	strcat(_fsPath, "/.filesystem.log");
+	_fs.open(_fsPath, std::fstream::out | std::fstream::app);
+	if (!_fs)
+	{
+		return ERROR;
+	}	
+	return SUCCESS;
+}
+
 
 /**
 * Discription: get function
@@ -64,12 +74,17 @@ char* CacheManager::getRootDir()
 * @param: std::string func
 * @return: 
 */
-void CacheManager::writeToLog(std::string func)
+int CacheManager::writeToLog(std::string func)
 {
 
-	time_t result = time(nullptr); //TODO may be free?
+	time_t result = time(nullptr);
+	if (result < 0)
+	{
+		return -errno;
+	}
 
 	_fs << result << " " << func << endl;
+	return SUCCESS;
 
 }
 
@@ -101,23 +116,22 @@ Block* CacheManager::findMyBlock(string name, int blockNumber)
 */
 int CacheManager::addBlockToCache(int fd, const char* path, int positionBlock, Block*& newBlock)
 {
-	makeRoomInCache(); //TODO
+	makeRoomInCache();
 	char * blockData = new char[_blockSize + 1];
-	blockData[0] = '\0';
 	int preadResult = pread(fd, blockData, _blockSize, _blockSize*positionBlock);
 	if(preadResult < 0)
 	{
 		delete[](blockData);
-		return preadResult; //TODO check error
+		return -errno; 
 	}
 	char * pathCopy = new char[strlen(path) + 1];
-	pathCopy[0] = '\0';
+	//pathCopy[0] = '\0';
 	strcpy(pathCopy, path);
 	newBlock = new Block(pathCopy, _blockSize*positionBlock, blockData, positionBlock);
 	blockList.push_back(newBlock);
-	blockList.sort(My::blockComparator); //TODO check sort order.
+	blockList.sort(My::blockComparator);
 	delete[](pathCopy);
-	return preadResult; //TODO check error
+	return preadResult;
 
 }
 
@@ -130,12 +144,6 @@ int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t r
 							char* buf, struct fuse_file_info *fi)
 {
 	
-	//fail if file handle is closed
-	//if (fcntl(fi->fh, F_GETFL) < 0 && errno == EBADF) // ------------- TODO important
-	//{
-	//	return -EBADF;
-	//}
-	buf[0] = '\0';
 	int bytesRead = 0;
 	size_t startBlockIndex = floor( offset / _blockSize);
 	size_t startBlockOffset = offset % _blockSize;
@@ -152,13 +160,13 @@ int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t r
 	for (size_t i = startBlockIndex; i <= endBlockIndex; i++)
 	{
 		//block was not found in the chach - write to cache
-		if ((newBlock = findMyBlock(filePath, i)) == NULL) //TODO are we sure we use i
+		if ((newBlock = findMyBlock(filePath, i)) == NULL) 
 		{
 			
 			int resAddBlock = addBlockToCache(fd, filePath, i, newBlock);
 			if (resAddBlock < 0)
 			{
-				return resAddBlock; //TODO error
+				return resAddBlock;
 			}
 		}
 		newBlock->addToCounter(); // for ioctl
@@ -191,7 +199,7 @@ int CacheManager::cacheRead(int fd, const char* filePath, off_t offset, size_t r
 			bytesRead += _blockSize;
 		}
 		
-	}//TODO get to end of file. what we do
+	}
 	return bytesRead;
 }
 
@@ -230,8 +238,8 @@ void CacheManager::rename(std::string oldName , std::string newName)
 	{
 		if ((*it)->getBlockFileName().length() >= oldName.length())
 		{
-			std::string tmpName = (*it)->getBlockFileName().substr(0, oldName.length());
-			if (tmpName == oldName)
+			std::string tempName = (*it)->getBlockFileName().substr(0, oldName.length());
+			if (tempName == oldName)
 			{
 				std::string update = (*it)->getBlockFileName().replace(0, oldName.length(), newName);
 				(*it)->setBlockFileName(update);

@@ -1,31 +1,20 @@
-FLAGS = -Wall -g -std=c++11
-CPP = g++
-FUSE_LIBS = `pkg-config fuse --libs`
-FUSE_FLAGS = `pkg-config fuse --cflags` -c
-FILE_OFFSET = -D_FILE_OFFSET_BITS=64
-TAR=tar
-TARFLAGS=-cvf
-TARNAME=ex5.tar
+CC = g++
+CFLAGS = -std=c++0x -g -Wall
 
+EXEC = CachingFileSystem
+LIBS = -lfuse
+SOURCES = CachingFileSystem.cpp Block.cpp CacheManager.cpp
 
-all: CachingFileSystem
+FUSE_FLAGS = -D_FILE_OFFSET_BITS=64 `pkg-config fuse --cflags --libs`
 
-CachingFileSystem: Block.o CacheManager.o CachingFileSystem.o
-	$(CPP) $(FLAGS) -o CachingFileSystem CachingFileSystem.o $(FUSE_LIBS)
-
-CachingFileSystem.o: CachingFileSystem.cpp
-	$(CPP) $(FLAGS) $(FUSE_FLAGS) CachingFileSystem.cpp $(FILE_OFFSET)
-
-Block.o: Block.h Block.cpp
-	g++ -Wall -Wextra -Wvla -std=c++11 -c Block.cpp
-
-CacheManager.o: CacheManager.h Block.h CacheManager.cpp
-	g++ -Wall -Wextra -Wvla -std=c++11 -c CacheManager.cpp
+all:
+	$(CC) $(CFLAGS) $(FUSE_FLAGS) -o $(EXEC) $(SOURCES) $(LIBS)
+	
+tar:
+	tar -cvf ex4.tar CachingFileSystem.cpp Block.h Block.cpp \
+	CacheManager.cpp CacheManager.h README Makefile
 
 clean:
-	rm -f *.o *~ CachingFileSystem ioctloutput.log
+	rm -rf ./CachingFileSystem ex4.tar
 
-.PHONEY: all clean CachingFileSystem
-
-tar:
-	$(TAR) $(TARFLAGS) $(TARNAME) CachingFileSystem.cpp Makefile README
+.PHONY = all clean
