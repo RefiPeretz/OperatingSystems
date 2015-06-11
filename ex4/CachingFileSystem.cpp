@@ -159,10 +159,12 @@ int caching_open(const char *path, struct fuse_file_info *fi)
 		return -errno;
 	}
 	TRY_TO_ACCESS_LOG_FILE;
+
 	if ((fi->flags & READ_ONLY) != O_RDONLY)
 	{
 		return -EACCES;
 	}
+
 	restat = SUCCESS;
 	int fd;
 	char fpath[PATH_MAX];	
@@ -557,7 +559,7 @@ int main(int argc, char* argv[])
 	CacheManager* manager = new CacheManager(rootDir, atoi(argv[3]), atoi(argv[4]));
 	if(manager->initLog() < 0)
 	{
-		cerr<<"System Error: while openning log file"<<endl;
+		cerr << "System Error: while openning log file" << endl;
 		exit(FAIL);
 	}
 
@@ -567,8 +569,7 @@ int main(int argc, char* argv[])
 		argv[i] = NULL;
 	}
 	argv[2] = (char*) "-s";
-	argv[3] = (char*) "-f"; //TODO delete this before sub
-	argc = 4;
+	argc = 3;
 
 	
 	int fuse_stat = fuse_main(argc, argv, &caching_oper, manager);
@@ -576,7 +577,7 @@ int main(int argc, char* argv[])
 	{
 		free(MANAGER-> getRootDir());
 		delete(MANAGER);
-		cerr<<"System Error Error: while initializing FUSE"<<endl;
+		cerr << "System Error Error: while initializing FUSE" << endl;
 		exit(FAIL);
 	}
 	return fuse_stat;
@@ -585,10 +586,3 @@ int main(int argc, char* argv[])
 
 
 
-//g++ -Wall -g -std=c++11 -o papo Block.cpp CacheManager.cpp CachingFileSystem.cpp -lfuse -D_FILE_OFFSET_BITS=64 `pkg-config fuse --libs` `pkg-config fuse --cflags`
-
-//fusermount -u /tmp/ff/md       //TODO
-
-//valgrind --tool=memcheck --leak-check=full papo /tmp/rr/rd /tmp/rr/md 5 1024
-
-//python -c "import os,fcntl; fd = os.open('/tmp/rr/md/.filesystem.log', os.O_RDONLY); fcntl.ioctl(fd, 0); os.close(fd)"

@@ -1,0 +1,128 @@
+refi950, rotembh
+Raphael Peretz (305079030), Rotem Ben_Hamo (203891638)
+Ex: 1
+
+FILES:
+
+osm.h -- the header file that was provided by the staff.
+
+osm.cpp -- the file that all the exercise functions are include in it.
+
+README -- this file.
+
+Makefile -- the file that makes the program (Compiling) and run it.
+
+ANSWERS:
+
+============================Task 1======================================================
+
+Brief description of what the program does: The program creates a folder within a folder 
+("os/2015"). Then, it creates a file name info and write to it- spaces, the login name of the user
+that ran WhatIDo, and the argument which supplied by the user when whatIDo was activated. 
+Then the program delete the file, the folder 2015, and the folder "os" and exit with 0.
+
+Output:
+
+mkdir("os", 0775) - creating a folder called os, in the path memory 0775.
+
+mkdir("os/2015", 0775) - creating a folder called 2015, in the os folder that was created.
+
+brk(0) - tries to change current break value to the argument but since it is 0 it is not valid at
+any time so the brk(0) returns the current break value.
+
+brk(0x1be0000) - (the argument in the program is relative to current break) tries to change
+current break value to the argument and succeeds so it returns new break value
+
+open("os/2015/info", O_WRONLY|O_CREAT|O_TRUNC, 0666) = 3 - create a file named "info" for writing
+and reading only. TRUNC means to truncate a file to a specified length, 0666- is for access rights
+of the file.
+
+fstat(3, {st_mode=S_IFREG|0644, st_size=0, ...}) = 0 – gets file status, and puts the result in the
+second arg (special struct), where we explicitly set the st_mode and st_rdev fields. Returns zero 
+if succeed.
+
+mmap(NULL, 65536, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f10aae28000.  - 
+creates a new mapping in the virtual address space of the calling process. First argument is 
+NULL so the kernel chooses the starting address of the mapping. Second is the wanted length of 
+the mapping. Third arg is the memory protection which is read/write in our case. Fourth arg sets
+the mapping to be invisible to other processes (MAP_PRIVATE) and also sets it to be not backed up 
+by any file and is initialized to zeros (MAP_ANONYMOUS). Sixth -1 is just a required settlement for
+such an anonymity. Returns the address of the new mapping.
+
+write(3, "     rotembh\na", 119) = 119 - writing to the file "info" (that now called 3) spaces and
+user name\<input argument> with 119 chars. ( the number of chars written depends on the argument
+that was input. It changes.)
+
+close(3) - close the file we worked on ("info").
+
+munmap(0x7f10aae28000, 65536) - maps the mapped memory from given address of given length
+
+unlink("os/2015/info") - deleting the file we work on named info.
+
+rmdir("os/2015/") - deleting the directory 2015.
+
+rmdir("os/") - deleting the directory os.
+
+exit_group(0) - exits all threads of the process.
+
+exited with 0 - returning the value program with value of 0.
+
+We analyzed the above using google.
+
+================================Task 2==================================================
+
+1. A. For time based program - Consider we have a program which suppose to perform some action
+every 30 minutes. (for example in 14:30 15:30 16:30 etc). Now consider that we had an interrupt
+exactly in this time a for instance 14:30. The program will not do its job and
+skip 14:30. Ofcurse that may cause a unwanted side effect.
+
+b. example for two process working on the same file - Consider we have process I and process II
+which both working on the same file (//file.txt). Lets say that process I worked on file.txt until
+it got interrupted by process II. Let say that after process
+II finish its job it changes the path of file.txt, In this case when the process I's values will be
+restored after the interrupt of process II it may contain pointer to the wrong path of file.txt
+which ofcurse may cause unwanted behavior.
+
+2. In general blocking all interrupts could be bad idea - Although it will promise continuity to
+all process it may cause major failures. For instance: a.Blocking crucial system interrupts - for
+example interrupt which flag that the system should taking measures to  itself cool down. like stop
+all unnecessary process or activate the cool down system of the machine. In situation when this
+kind of interrupts are blocked we could suffer from major system collapses and damage to hardware.
+b. Another example but not less important is user control - If we will block every interrupt while
+a process is running we will cause a total freeze of the machine for every background process which
+runs in certain point. This may prevent control from the user on the machine which will have to
+wait for each process to end (even ones he didn't order itself) until he will be able to perform
+tasks.
+
+=============================Task 3 ===================================================
+* All the function that we implemented are basically the same. we initialized a few variables to
+measure the start time and the end time of the action that we wanted to measure (simple
+instruction, empty function call with no arguments, and a trap) using loop unrooling (that improve
+the running time until certain limit). 
+we used a for loop to run the number of iterations that was given as an
+input. For each iteration we pefrom  8 actions(as requested) and iterate by 8.
+we have seen (after a lot of measurements) that using 8 as the unrolling factor gives a steady
+results. any attempt increase the unroling facor had slight improvment and in certaion point 
+return irelavent results, in the other hand any attempt to decresse the unroling factor cause
+bad running time. 
+
+
+How can we tell your measurements are good enough?
+When we run the measurements several times on the same machine, we got similar
+results (in the terminal screen). - we also notice that when we ran the program in different
+computers the results were different!. 
+The time we measure for a function call was several times the time of a single
+instruction, and the time for a trap was significantly higher.
+our result:
+0.360000 - for Instruction time
+1.700000 - for Function time
+254.220000 - for Trap time
+4.722222 - Function/instruction ratio
+706.166667  - Trap/instruction ratio
+
+Conclusions:
+-As we can see the function time is 4.7 times bigger then the instruction time.
+-The time for a trap is significantly higher (254 times bigger!).
+
+
+

@@ -241,7 +241,8 @@ void CacheManager::rename(std::string oldName , std::string newName)
 			std::string tempName = (*it)->getBlockFileName().substr(0, oldName.length());
 			if (tempName == oldName)
 			{
-				std::string update = (*it)->getBlockFileName().replace(0, oldName.length(), newName);
+				std::string update = \
+				(*it)->getBlockFileName().replace(0, oldName.length(), newName);
 				(*it)->setBlockFileName(update);
 			}
 		}
