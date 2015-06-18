@@ -1,0 +1,50 @@
+refi950, rotembh
+Raphael Peretz (305079030), Rotem Ben_Hamo (203891638)
+Ex: 2
+
+FILES:
+myThread.hpp- A file that contain the class thread with all the thread variable.
+
+myThread.cpp- A file that implement all the thread functions.
+
+manager.hpp- A file that contain the class manager with all the manager variable.
+
+manager.cpp- A file that implement all the manager functions.
+
+utreads.h- The file that was provided in the moodle.
+
+README- This file.
+
+Makefile.
+
+ANSWERS:
+
+1.
+
+RR pro – All the threads run in the end. Equal distribution of time
+ for everyone.
+
+RR con – short threads can wait a long time until they are finished,
+ because RR seeing all the threads as equal and
+there is no priorty between them.
+
+PQ pro - important(priorty) threads will not wait long after they
+ entered and will be exacuted
+before less important threads.
+
+PQ con - Starvation - a thread can wait for a long time if there are 
+threads with higher priority in the queue.
+It will have to wait untill all the higher priorty threads
+will be finished.
+
+Combination of RR and PQ solve some of the cons. 
+important threads will get running time before less important
+threads, and all the threads in the same priorty will get the
+same time division. so starvation of threads will be elimnated
+ btween threads with the same priorty. however high priorty threads
+ still can cause starvation to smaller priorty threads since
+there is still PQ model between RED ORANGE and Green.
+
+2.
+For instance:A proccess which demand user approval by clicking "yes" or
+"no" will be suspend untill user input will arraive.

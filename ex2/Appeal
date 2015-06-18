@@ -1,0 +1,6 @@
+In our ex, according to our old makefile. The project pass the compliation
+ process but fail the linkage state.
+I was our first time that we made a libary and we didn't understand that
+ we need to do more after compliation complete
+we fixed only our makefile to compile the libary with our additional cpp files.
+
