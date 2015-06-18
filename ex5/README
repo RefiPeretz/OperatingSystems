@@ -1,0 +1,75 @@
+refi950, rotembh
+Raphael Peretz (305079030), Rotem Ben_Hamo (203891638)
+Ex: 5
+
+FILES:
+clftp.cpp - contain the class client that holds data file.
+clftp.h - header file for class client.
+srftp.h -- header file for the server.
+srftp.cpp -- contain the server that manage the clients request
+performance.jpg -- file that contain our test result
+Makefile -- to help compile the program.
+README -- this file.
+
+--------------------------------------------------------------------------------
+REMARKS:
+--------------------------------------------------------------------------------
+
+
+----------------------------------------------------------------------------------
+ANSWERS:
+----------------------------------------------------------------------------------
+1.
+implementation of UDF:
+
+our problems in UDF is : * the data parts can be lost, * the data parts can arraive not in order,
+* the data parts that are sent can be duplicated.
+
+we will need to add a few changes for it to wark:
+
+a - we will add an argument that contains the position number. In UDP protocol we do not know 
+if the data that we transfer was transfer successfully. so with this argument our server will know 
+if all the parts of the file that we send arrived successfully. also it can help check if their was
+duplicated data parts.
+
+b - we will add an argument that the server can tell the client if it want it to send the data
+again in case it didnt arrived successfully, And vice versa - if the client wants information 
+that didnt arrived from the server.  
+   
+we can add those argument at the beginning of every data part we send. 
+
+why is it good protocol implement?:
+it solves the problems of UDP. 
+
+why is this protocol efficient?:
+the server gets the data part by part from the client, so they are sent in order and its a
+good chance they will get to the server in order (which forces less need-to-save data parts).
+
+differences between this UDP implementation to the TPC implementation:
+in the UDP implementation the server saves data part that are newer then the data parts it's 
+expecting. when it reaches the buffer's limit and the server still didnt receive what it wanted,
+it will use the second argument (b) to the client that say "send me again". until it gets what it 
+wants, the server will not save the new parts data it recieved. when receiving a few parts data, 
+they will be saved in the file and be deleted from the buffer.  
+
+our server would need to save this data for every client (like socket).
+
+2. * the performance is attached to the tar file.
+- we took a file and sent it with the client to the server. ( the client and the server were
+activate on a different computer). We sent each file 10 times and averaged the elapsed time.
+we raise the file size every time, and by using the function 
+gettimeofday(), we calculate the time it took to the file to transfer to the server.
+
+as you can see in the graf, we got a linear connection between the size of the file and the time it
+took to transfer it. that result is expected because as the file get bigger it will take more time 
+to transfer it.
+
+we checked and saw that if the client and the server were on the same computer, 
+the time it will take to transfer a file will reduse, because now on the same computer it does not 
+transfer over the internet , a fact that takes more time.
+
+
+
+
+
+

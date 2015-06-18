@@ -4,7 +4,7 @@
 */
 #include "CacheManager.h"
 
-
+#define strncpy memcpy
 struct My
 {
 	static bool blockComparator    (Block*    first, Block*    second);
